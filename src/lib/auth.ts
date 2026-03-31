@@ -12,20 +12,36 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        console.log("[AUTH] Authorize called with email:", credentials?.email);
+        console.log("[AUTH] DIRECT_DATABASE_URL set:", !!process.env.DIRECT_DATABASE_URL);
+        console.log("[AUTH] DATABASE_URL set:", !!process.env.DATABASE_URL);
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        if (!credentials?.email || !credentials?.password) {
+          console.log("[AUTH] Missing credentials");
+          return null;
+        }
 
-        if (!user) return null;
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          });
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.passwordHash
-        );
+          console.log("[AUTH] User found:", !!user, user?.email);
 
-        if (!isValid) return null;
+          if (!user) return null;
+
+          const isValid = await bcrypt.compare(
+            credentials.password,
+            user.passwordHash
+          );
+
+          console.log("[AUTH] Password valid:", isValid);
+
+          if (!isValid) return null;
+        } catch (error) {
+          console.error("[AUTH] Database error:", error);
+          return null;
+        }
 
         return {
           id: user.id,
