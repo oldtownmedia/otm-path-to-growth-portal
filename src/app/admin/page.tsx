@@ -23,7 +23,7 @@ export default async function AdminPage() {
           <span className="font-outfit font-semibold text-otm-navy text-sm">
             Admin
           </span>
-          <Link href="/" className="text-xs text-otm-teal hover:underline">
+          <Link href="/portal" className="text-xs text-otm-teal hover:underline">
             &larr; View portal
           </Link>
         </div>

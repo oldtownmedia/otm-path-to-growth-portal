@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
+import fs from "fs";
+import path from "path";
+import { getSessionUser } from "@/lib/session";
+
+const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+
+function ensureUploadsDir() {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getSessionUser();
+    if (!user || user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -18,8 +34,6 @@ export async function POST(req: NextRequest) {
       const result = await mammoth.extractRawText({ buffer });
       text = result.value;
     } else if (filename.endsWith(".pdf")) {
-      // pdf-parse v1 tries to load a test file on require — we call it with
-      // a buffer directly to avoid that path.
       const { default: pdfParse } = await import("pdf-parse");
       const result = await pdfParse(buffer);
       text = result.text;
@@ -36,7 +50,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ text, filename: file.name });
+    // Save file to disk
+    ensureUploadsDir();
+    const timestamp = Date.now();
+    const safeFilename = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const filePath = path.join(UPLOADS_DIR, safeFilename);
+    fs.writeFileSync(filePath, buffer);
+
+    return NextResponse.json({
+      text,
+      filename: file.name,
+      storedFilename: safeFilename,
+    });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(

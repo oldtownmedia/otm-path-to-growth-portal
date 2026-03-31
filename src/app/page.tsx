@@ -1,22 +1,18 @@
-import TopBar from "@/components/TopBar";
-import LifecycleBar from "@/components/LifecycleBar";
-import StageCard from "@/components/StageCard";
-import { getEngagementFresh } from "@/lib/data-store";
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const engagement = await getEngagementFresh();
-  const completed = engagement.nodes.filter((n) => n.status === "complete").length;
-  const total = engagement.nodes.length;
+export default async function RootPage() {
+  const user = await getSessionUser();
 
-  return (
-    <div className="min-h-screen bg-otm-light">
-      <TopBar clientName={engagement.clientName} />
-      <main className="max-w-[960px] mx-auto px-6 pt-8 pb-16">
-        <LifecycleBar />
-        <StageCard completedCount={completed} totalCount={total} />
-      </main>
-    </div>
-  );
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (user.role === "ADMIN") {
+    redirect("/admin");
+  }
+
+  redirect("/portal");
 }

@@ -34,7 +34,7 @@ export default function StageCard({
         </div>
       </div>
       <Link
-        href="/strategy"
+        href="/portal/strategy"
         className="inline-flex items-center gap-1 bg-otm-teal text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-otm-teal/90 transition-colors"
       >
         View your strategy progress &rarr;

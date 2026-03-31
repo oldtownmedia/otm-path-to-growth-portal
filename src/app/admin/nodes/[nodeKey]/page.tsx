@@ -158,7 +158,7 @@ export default function NodeAdminPage() {
           </Link>
         </div>
         <Link
-          href="/strategy"
+          href="/portal/strategy"
           className="text-xs text-otm-teal hover:underline"
         >
           View client portal &rarr;

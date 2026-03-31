@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Outfit, Lato } from "next/font/google";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -27,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${outfit.variable} ${lato.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-otm-light font-lato text-otm-gray">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

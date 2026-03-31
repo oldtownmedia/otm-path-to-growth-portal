@@ -3,20 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 
 export default function TopBar({ clientName }: { clientName: string }) {
   const pathname = usePathname();
-  const isStrategy = pathname === "/strategy";
+  const { data: session } = useSession();
+  const isStrategy = pathname === "/portal/strategy";
+  const isAdmin = session?.user?.role === "ADMIN";
 
   return (
     <header className="w-full bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-4">
-        <Link href="/">
+        <Link href="/portal">
           <Image src="/otm-logo.png" alt="OTM" width={80} height={32} className="h-8 w-auto" />
         </Link>
         {isStrategy && (
           <Link
-            href="/"
+            href="/portal"
             className="text-xs text-otm-teal hover:underline ml-2"
           >
             &larr; Home
@@ -25,12 +28,20 @@ export default function TopBar({ clientName }: { clientName: string }) {
       </div>
       <div className="flex items-center gap-4">
         <span className="text-otm-gray text-sm font-lato">{clientName}</span>
-        <Link
-          href="/admin"
-          className="text-[10px] text-gray-400 hover:text-otm-teal border border-gray-200 px-2 py-0.5 rounded"
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="text-[10px] text-gray-400 hover:text-otm-teal border border-gray-200 px-2 py-0.5 rounded"
+          >
+            Admin
+          </Link>
+        )}
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="text-[10px] text-gray-400 hover:text-red-500 border border-gray-200 px-2 py-0.5 rounded"
         >
-          Admin
-        </Link>
+          Sign out
+        </button>
       </div>
     </header>
   );
