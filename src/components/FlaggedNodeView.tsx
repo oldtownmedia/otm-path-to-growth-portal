@@ -38,8 +38,22 @@ export default function FlaggedNodeView({
         {node.displayName}
       </h1>
 
-      {/* Existing exec summary still shown */}
-      {node.execSummary && (
+      {/* Existing content still shown — sections if available, else execSummary */}
+      {node.sections && node.sections.length > 0 ? (
+        <>
+          <div className="border-t border-gray-200 my-4" />
+          {node.sections
+            .filter((s) => s.displayLayer === "CHAPTER")
+            .map((section) => (
+              <div key={section.sectionKey} className="mb-4">
+                <h3 className="font-outfit font-semibold text-otm-navy text-base mb-2">
+                  {section.sectionTitle}
+                </h3>
+                <SummaryContent content={section.content} />
+              </div>
+            ))}
+        </>
+      ) : node.execSummary ? (
         <>
           <div className="border-t border-gray-200 my-4" />
           <h3 className="text-[11px] uppercase text-gray-400 tracking-[0.06em] mb-3">
@@ -47,7 +61,7 @@ export default function FlaggedNodeView({
           </h3>
           <SummaryContent content={node.execSummary} />
         </>
-      )}
+      ) : null}
 
       <p className="text-sm text-gray-500 italic mt-4">
         Your OTM team is reviewing whether updates are needed.

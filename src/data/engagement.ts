@@ -1,4 +1,24 @@
 export type NodeStatus = "locked" | "active" | "complete" | "flagged" | "cascading";
+export type DisplayLayer = "CHAPTER" | "FULL";
+
+export interface NodeTemplateSection {
+  sectionKey: string;
+  sectionTitle: string;
+  sortOrder: number;
+  displayLayer: DisplayLayer;
+  isRequired: boolean;
+  description: string | null;
+}
+
+export interface NodeSectionData {
+  sectionKey: string;
+  sectionTitle: string;
+  content: string;
+  sortOrder: number;
+  displayLayer: DisplayLayer;
+  isInherited: boolean;
+  inheritedFromNode: string | null;
+}
 
 export interface CascadeFlag {
   flaggedNodeKey: string;
@@ -17,6 +37,7 @@ export interface CascadeNode {
   status: NodeStatus;
   dependsOn: string[];
   execSummary?: string;
+  sections?: NodeSectionData[];
   upstreamNames: string[];
   downstreamNames: string[];
 }

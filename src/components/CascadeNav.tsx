@@ -128,9 +128,16 @@ export default function CascadeNav({
                   } ${isClickable ? "cursor-pointer hover:bg-gray-50" : "cursor-default"}`}
                 >
                   <StatusCircle status={node.status} isGate={node.isGate} />
-                  <span className={`text-[13px] font-lato leading-tight ${nameColor(node.status, node.isGate)}`}>
-                    {node.displayName}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className={`text-[13px] font-lato leading-tight ${nameColor(node.status, node.isGate)}`}>
+                      {node.displayName}
+                    </span>
+                    {node.status === "complete" && node.sections && node.sections.length > 0 && (
+                      <span className="text-[10px] text-gray-400 mt-0.5">
+                        {node.sections.filter((s) => s.displayLayer === "CHAPTER").length} chapters
+                      </span>
+                    )}
+                  </div>
                 </button>
 
                 {/* Gate divider after */}

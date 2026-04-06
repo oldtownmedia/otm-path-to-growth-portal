@@ -1,7 +1,13 @@
 import { CascadeNode } from "@/data/engagement";
 import SummaryContent from "./SummaryContent";
+import SectionExpander from "./SectionExpander";
+import InheritedBadge from "./InheritedBadge";
 
 export default function CompleteNodeView({ node }: { node: CascadeNode }) {
+  const hasSections = node.sections && node.sections.length > 0;
+  const chapterSections = node.sections?.filter((s) => s.displayLayer === "CHAPTER") || [];
+  const fullSections = node.sections?.filter((s) => s.displayLayer === "FULL") || [];
+
   return (
     <div>
       {/* Badges */}
@@ -36,13 +42,59 @@ export default function CompleteNodeView({ node }: { node: CascadeNode }) {
 
       <div className="border-t border-gray-200 my-4" />
 
-      {/* Executive Summary */}
-      <div className="mb-6">
-        <h3 className="text-[11px] uppercase text-gray-400 tracking-[0.06em] mb-3">
-          Executive Summary
-        </h3>
-        {node.execSummary && <SummaryContent content={node.execSummary} />}
-      </div>
+      {/* Section-based display */}
+      {hasSections ? (
+        <>
+          {/* CHAPTER sections — rendered as flowing content */}
+          {chapterSections.length > 0 && (
+            <div className="mb-6">
+              {chapterSections.map((section) => (
+                <div key={section.sectionKey} className="mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-outfit font-semibold text-otm-navy text-base">
+                      {section.sectionTitle}
+                    </h3>
+                    {section.isInherited && section.inheritedFromNode && (
+                      <InheritedBadge sourceName={section.inheritedFromNode} />
+                    )}
+                  </div>
+                  <SummaryContent content={section.content} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* FULL sections — expandable rows */}
+          {fullSections.length > 0 && (
+            <>
+              <div className="border-t border-gray-200 my-4" />
+              <h3 className="text-[11px] uppercase text-gray-400 tracking-[0.06em] mb-3">
+                Detail Sections
+              </h3>
+              <div className="space-y-2 mb-6">
+                {fullSections.map((section) => (
+                  <SectionExpander
+                    key={section.sectionKey}
+                    title={section.sectionTitle}
+                    content={section.content}
+                    inheritedFrom={section.isInherited ? section.inheritedFromNode : null}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        /* Fallback: legacy execSummary */
+        node.execSummary && (
+          <div className="mb-6">
+            <h3 className="text-[11px] uppercase text-gray-400 tracking-[0.06em] mb-3">
+              Executive Summary
+            </h3>
+            <SummaryContent content={node.execSummary} />
+          </div>
+        )
+      )}
 
       <div className="border-t border-gray-200 my-4" />
 
@@ -63,7 +115,7 @@ export default function CompleteNodeView({ node }: { node: CascadeNode }) {
       {/* Action buttons */}
       <div className="flex items-center gap-3">
         <button className="text-xs px-4 py-2 border border-gray-300 rounded-lg text-otm-gray hover:bg-gray-50 transition-colors">
-          View full document
+          Download full document
         </button>
         <button
           onClick={() => window.print()}

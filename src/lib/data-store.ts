@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import type { Engagement, CascadeNode, CascadeFlag, NodeStatus } from "@/data/engagement";
+import type { Engagement, CascadeNode, CascadeFlag, NodeStatus, NodeSectionData } from "@/data/engagement";
 
 export interface NodeData {
   nodeKey: string;
@@ -26,7 +26,11 @@ export async function getEngagementFresh(engagementId?: string): Promise<Engagem
             include: {
               dependsOn: { include: { dependsOnNode: true } },
               dependedOnBy: { include: { node: true } },
-              versions: { where: { isCurrent: true }, take: 1 },
+              versions: {
+                where: { isCurrent: true },
+                take: 1,
+                include: { sections: { orderBy: { sortOrder: "asc" } } },
+              },
             },
           },
         },
@@ -38,7 +42,11 @@ export async function getEngagementFresh(engagementId?: string): Promise<Engagem
             include: {
               dependsOn: { include: { dependsOnNode: true } },
               dependedOnBy: { include: { node: true } },
-              versions: { where: { isCurrent: true }, take: 1 },
+              versions: {
+                where: { isCurrent: true },
+                take: 1,
+                include: { sections: { orderBy: { sortOrder: "asc" } } },
+              },
             },
           },
         },
@@ -63,18 +71,34 @@ export async function getEngagementFresh(engagementId?: string): Promise<Engagem
     resolved: f.resolved,
   }));
 
-  const nodes: CascadeNode[] = engagement.nodes.map((node) => ({
-    nodeKey: node.nodeKey,
-    displayName: node.displayName,
-    sortOrder: node.sortOrder,
-    isGate: node.isGate,
-    isConditional: node.isConditional,
-    status: node.status as NodeStatus,
-    dependsOn: node.dependsOn.map((d) => d.dependsOnNode.nodeKey),
-    execSummary: node.versions[0]?.execSummary ?? undefined,
-    upstreamNames: node.dependsOn.map((d) => d.dependsOnNode.displayName),
-    downstreamNames: node.dependedOnBy.map((d) => d.node.displayName),
-  }));
+  const nodes: CascadeNode[] = engagement.nodes.map((node) => {
+    const currentVersion = node.versions[0];
+    const sections = currentVersion?.sections?.length
+      ? currentVersion.sections.map((s) => ({
+          sectionKey: s.sectionKey,
+          sectionTitle: s.sectionTitle,
+          content: s.content,
+          sortOrder: s.sortOrder,
+          displayLayer: s.displayLayer as "CHAPTER" | "FULL",
+          isInherited: s.isInherited,
+          inheritedFromNode: s.inheritedFromNode,
+        }))
+      : undefined;
+
+    return {
+      nodeKey: node.nodeKey,
+      displayName: node.displayName,
+      sortOrder: node.sortOrder,
+      isGate: node.isGate,
+      isConditional: node.isConditional,
+      status: node.status as NodeStatus,
+      dependsOn: node.dependsOn.map((d) => d.dependsOnNode.nodeKey),
+      execSummary: currentVersion?.execSummary ?? undefined,
+      sections,
+      upstreamNames: node.dependsOn.map((d) => d.dependsOnNode.displayName),
+      downstreamNames: node.dependedOnBy.map((d) => d.node.displayName),
+    };
+  });
 
   return {
     clientName: engagement.clientName,
@@ -96,7 +120,11 @@ export async function getEngagementData(engagementId?: string) {
             orderBy: { sortOrder: "asc" },
             include: {
               dependsOn: { include: { dependsOnNode: true } },
-              versions: { where: { isCurrent: true }, take: 1 },
+              versions: {
+                where: { isCurrent: true },
+                take: 1,
+                include: { sections: { orderBy: { sortOrder: "asc" } } },
+              },
             },
           },
         },
@@ -107,7 +135,11 @@ export async function getEngagementData(engagementId?: string) {
             orderBy: { sortOrder: "asc" },
             include: {
               dependsOn: { include: { dependsOnNode: true } },
-              versions: { where: { isCurrent: true }, take: 1 },
+              versions: {
+                where: { isCurrent: true },
+                take: 1,
+                include: { sections: { orderBy: { sortOrder: "asc" } } },
+              },
             },
           },
         },
@@ -116,6 +148,10 @@ export async function getEngagementData(engagementId?: string) {
   const flags = await prisma.cascadeFlag.findMany({
     where: {
       flaggedNode: { engagementId: engagement.id },
+    },
+    include: {
+      flaggedNode: true,
+      sourceNode: true,
     },
   });
 
@@ -136,8 +172,8 @@ export async function getEngagementData(engagementId?: string) {
     lifecycleStage: engagement.lifecycleStage,
     nodes,
     flags: flags.map((f) => ({
-      flaggedNodeKey: "",
-      sourceNodeKey: "",
+      flaggedNodeKey: f.flaggedNode.nodeKey,
+      sourceNodeKey: f.sourceNode.nodeKey,
       flagType: f.flagType as "needs_review" | "cascading",
       sourceChangeDate: f.sourceChangeDate.toISOString(),
       resolved: f.resolved,
@@ -150,7 +186,17 @@ export async function getEngagementData(engagementId?: string) {
  */
 export async function updateNode(
   nodeKey: string,
-  updates: Partial<Pick<NodeData, "status" | "execSummary">>,
+  updates: Partial<Pick<NodeData, "status" | "execSummary">> & {
+    sections?: Array<{
+      sectionKey: string;
+      sectionTitle: string;
+      content: string;
+      sortOrder: number;
+      displayLayer: string;
+      isInherited?: boolean;
+      inheritedFromNode?: string | null;
+    }>;
+  },
   engagementId?: string
 ): Promise<NodeData | null> {
   const node = await prisma.node.findFirst({
@@ -182,7 +228,7 @@ export async function updateNode(
     });
 
     const lastVersion = node.versions[0];
-    await prisma.nodeVersion.create({
+    const newVersion = await prisma.nodeVersion.create({
       data: {
         nodeId: node.id,
         versionNumber: (lastVersion?.versionNumber ?? 0) + 1,
@@ -190,6 +236,22 @@ export async function updateNode(
         isCurrent: true,
       },
     });
+
+    // Create sections if provided
+    if (updates.sections?.length) {
+      await prisma.nodeSection.createMany({
+        data: updates.sections.map((s) => ({
+          nodeVersionId: newVersion.id,
+          sectionKey: s.sectionKey,
+          sectionTitle: s.sectionTitle,
+          content: s.content,
+          sortOrder: s.sortOrder,
+          displayLayer: s.displayLayer as "CHAPTER" | "FULL",
+          isInherited: s.isInherited ?? false,
+          inheritedFromNode: s.inheritedFromNode ?? null,
+        })),
+      });
+    }
   }
 
   // Return updated node data
@@ -258,7 +320,11 @@ export async function getNodesForEngagement(engagementId?: string): Promise<Node
             orderBy: { sortOrder: "asc" },
             include: {
               dependsOn: { include: { dependsOnNode: true } },
-              versions: { where: { isCurrent: true }, take: 1 },
+              versions: {
+                where: { isCurrent: true },
+                take: 1,
+                include: { sections: { orderBy: { sortOrder: "asc" } } },
+              },
             },
           },
         },
@@ -269,7 +335,11 @@ export async function getNodesForEngagement(engagementId?: string): Promise<Node
             orderBy: { sortOrder: "asc" },
             include: {
               dependsOn: { include: { dependsOnNode: true } },
-              versions: { where: { isCurrent: true }, take: 1 },
+              versions: {
+                where: { isCurrent: true },
+                take: 1,
+                include: { sections: { orderBy: { sortOrder: "asc" } } },
+              },
             },
           },
         },
@@ -391,4 +461,37 @@ export async function resolveFlag(
 export async function getDefaultEngagementId(): Promise<string> {
   const engagement = await prisma.engagement.findFirstOrThrow();
   return engagement.id;
+}
+
+/**
+ * Get sections for the current version of a node.
+ */
+export async function getNodeSections(
+  nodeKey: string,
+  engagementId: string
+): Promise<NodeSectionData[]> {
+  const node = await prisma.node.findFirst({
+    where: { nodeKey, engagementId },
+    include: {
+      versions: {
+        where: { isCurrent: true },
+        take: 1,
+        include: {
+          sections: { orderBy: { sortOrder: "asc" } },
+        },
+      },
+    },
+  });
+
+  if (!node || !node.versions[0]) return [];
+
+  return node.versions[0].sections.map((s) => ({
+    sectionKey: s.sectionKey,
+    sectionTitle: s.sectionTitle,
+    content: s.content,
+    sortOrder: s.sortOrder,
+    displayLayer: s.displayLayer as "CHAPTER" | "FULL",
+    isInherited: s.isInherited,
+    inheritedFromNode: s.inheritedFromNode,
+  }));
 }

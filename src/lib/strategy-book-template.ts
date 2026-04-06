@@ -95,7 +95,8 @@ function renderChapter(
   node: CascadeNode,
   chapterNum: number
 ): string {
-  if (!node.execSummary) return "";
+  const hasSections = node.sections && node.sections.length > 0;
+  if (!hasSections && !node.execSummary) return "";
 
   const builtFrom =
     node.upstreamNames.length > 0
@@ -116,6 +117,28 @@ function renderChapter(
     ? '<span class="gate-badge">Strategic Gate</span>'
     : "";
 
+  // Render body from CHAPTER sections if available, else execSummary
+  let bodyHtml: string;
+  if (hasSections) {
+    const chapterSections = node.sections!.filter((s) => s.displayLayer === "CHAPTER");
+    bodyHtml = chapterSections
+      .map((section) => {
+        const sourceNote = section.isInherited && section.inheritedFromNode
+          ? `<p class="section-source">Source: ${escapeHtml(section.inheritedFromNode)}</p>`
+          : "";
+        return `
+          <div class="chapter-section">
+            <h3 class="section-heading">${escapeHtml(section.sectionTitle)}</h3>
+            ${sourceNote}
+            ${renderMarkdownText(section.content)}
+          </div>
+        `;
+      })
+      .join("\n");
+  } else {
+    bodyHtml = renderMarkdownText(node.execSummary!);
+  }
+
   return `
     <div class="chapter">
       <div class="chapter-header">
@@ -126,7 +149,7 @@ function renderChapter(
       ${builtFrom}
       <div class="chapter-divider"></div>
       <div class="chapter-body">
-        ${renderMarkdownText(node.execSummary)}
+        ${bodyHtml}
       </div>
       ${unlocks}
     </div>
@@ -141,7 +164,7 @@ export function generateStrategyBookHTML(engagement: Engagement): string {
   });
 
   const completedNodes = engagement.nodes.filter(
-    (n) => n.status === "complete" && n.execSummary
+    (n) => n.status === "complete" && (n.execSummary || (n.sections && n.sections.length > 0))
   );
 
   let chapterNum = 0;
@@ -354,6 +377,23 @@ export function generateStrategyBookHTML(engagement: Engagement): string {
     .unlocks-section p {
       font-size: 10pt;
       color: #4a4a4a;
+    }
+
+    /* Section headings within chapters */
+    .chapter-section {
+      margin-bottom: 20px;
+    }
+    .section-heading {
+      font-size: 13pt;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #023a67;
+    }
+    .section-source {
+      font-size: 8pt;
+      color: #9ca3af;
+      font-style: italic;
+      margin-bottom: 8px;
     }
   </style>
 </head>

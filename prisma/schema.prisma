@@ -25,6 +25,11 @@ enum FlagType {
   cascading
 }
 
+enum DisplayLayer {
+  CHAPTER
+  FULL
+}
+
 model User {
   id           String           @id @default(cuid())
   email        String           @unique
@@ -102,6 +107,37 @@ model NodeVersion {
   cascadeTriggering Boolean  @default(false)
   createdAt         DateTime @default(now())
   node              Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  sections          NodeSection[]
+}
+
+model NodeTemplate {
+  id           String       @id @default(cuid())
+  nodeKey      String
+  sectionKey   String
+  sectionTitle String
+  sortOrder    Int
+  displayLayer DisplayLayer
+  isRequired   Boolean      @default(true)
+  description  String?      @db.Text
+
+  @@unique([nodeKey, sectionKey])
+  @@index([nodeKey])
+}
+
+model NodeSection {
+  id                String       @id @default(cuid())
+  nodeVersionId     String
+  sectionKey        String
+  sectionTitle      String
+  content           String       @db.Text
+  sortOrder         Int
+  displayLayer      DisplayLayer
+  isInherited       Boolean      @default(false)
+  inheritedFromNode String?
+  nodeVersion       NodeVersion  @relation(fields: [nodeVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([nodeVersionId, sectionKey])
+  @@index([nodeVersionId])
 }
 
 model CascadeFlag {

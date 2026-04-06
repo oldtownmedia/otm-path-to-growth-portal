@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEngagementFresh, getFlagForNode } from "@/lib/data-store";
+import { getEngagementFresh, getFlagForNode, getNodeSections } from "@/lib/data-store";
 import { getUserEngagementId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export async function GET(
   }
 
   const flag = await getFlagForNode(nodeKey, engagementId);
+  const sections = await getNodeSections(nodeKey, engagementId);
 
-  return NextResponse.json({ node, flag: flag || null });
+  return NextResponse.json({ node, flag: flag || null, sections });
 }

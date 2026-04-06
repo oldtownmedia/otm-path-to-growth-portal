@@ -19,15 +19,25 @@ export async function POST(
     }
 
     const { nodeKey } = await params;
-    const { execSummary, status, triggerCascade } = await req.json();
+    const { execSummary, sections, status, triggerCascade } = await req.json();
 
-    if (!execSummary) {
-      return NextResponse.json({ error: "Missing exec summary" }, { status: 400 });
+    // Compute backward-compatible execSummary from sections if not provided
+    let finalSummary = execSummary;
+    if (!finalSummary && sections?.length) {
+      finalSummary = sections
+        .filter((s: { displayLayer: string; content: string }) => s.displayLayer === "CHAPTER" && s.content)
+        .map((s: { sectionTitle: string; content: string }) => `## ${s.sectionTitle}\n\n${s.content}`)
+        .join("\n\n");
+    }
+
+    if (!finalSummary && !sections?.length) {
+      return NextResponse.json({ error: "Missing content — provide execSummary or sections" }, { status: 400 });
     }
 
     const updated = await updateNode(nodeKey, {
-      execSummary,
+      execSummary: finalSummary || "",
       status: status || "complete",
+      sections: sections || undefined,
     }, engagementId);
 
     if (!updated) {
